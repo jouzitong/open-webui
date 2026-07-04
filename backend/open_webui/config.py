@@ -92,7 +92,8 @@ async def import_legacy_config_json():
 # Static DIR
 ####################################
 
-STATIC_DIR = Path(os.getenv('STATIC_DIR', OPEN_WEBUI_DIR / 'static')).resolve()
+STATIC_DIR = Path(os.getenv('STATIC_DIR', DATA_DIR / 'runtime-static')).resolve()
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 try:
     if STATIC_DIR.exists():
