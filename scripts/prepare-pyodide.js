@@ -26,7 +26,7 @@ const pypiPackages = ['black', 'pathspec', 'mypy_extensions', 'pytokens'];
 
 import { loadPyodide } from 'pyodide';
 import { setGlobalDispatcher, ProxyAgent } from 'undici';
-import { writeFile, readFile, copyFile, readdir, rmdir, access } from 'fs/promises';
+import { writeFile, readFile, copyFile, readdir, rm, access } from 'fs/promises';
 
 /**
  * Loading network proxy configurations from the environment variables.
@@ -58,8 +58,45 @@ function initNetworkProxyFromEnv() {
 	console.log(`Initialized network proxy "${preferedProxy}" from env`);
 }
 
+async function getInstalledPyodideVersion() {
+	const pyodidePackageJson = JSON.parse(
+		await readFile('node_modules/pyodide/package.json', 'utf-8')
+	);
+	return pyodidePackageJson.version.replace('^', '');
+}
+
+async function shouldRefreshPyodide() {
+	const installedVersion = await getInstalledPyodideVersion();
+
+	try {
+		const staticPackageJson = JSON.parse(await readFile('static/pyodide/package.json', 'utf-8'));
+		const staticVersion = staticPackageJson.version.replace('^', '');
+		await access('static/pyodide/pyodide-lock.json');
+
+		if (staticVersion === installedVersion) {
+			console.log(
+				`Pyodide ${installedVersion} already prepared in static/pyodide, skipping rebuild`
+			);
+			return false;
+		}
+
+		console.log(
+			`Pyodide version mismatch (${staticVersion} != ${installedVersion}), removing static/pyodide directory`
+		);
+		await rm('static/pyodide', { recursive: true, force: true });
+	} catch (err) {
+		console.log('Pyodide static assets missing or incomplete, proceeding with download.', err);
+	}
+
+	return true;
+}
+
 async function downloadPackages() {
 	console.log('Setting up pyodide + micropip');
+
+	if (!(await shouldRefreshPyodide())) {
+		return false;
+	}
 
 	let pyodide;
 	try {
@@ -68,22 +105,7 @@ async function downloadPackages() {
 		});
 	} catch (err) {
 		console.error('Failed to load Pyodide:', err);
-		return;
-	}
-
-	const packageJson = JSON.parse(await readFile('package.json'));
-	const pyodideVersion = packageJson.dependencies.pyodide.replace('^', '');
-
-	try {
-		const pyodidePackageJson = JSON.parse(await readFile('static/pyodide/package.json'));
-		const pyodidePackageVersion = pyodidePackageJson.version.replace('^', '');
-
-		if (pyodideVersion !== pyodidePackageVersion) {
-			console.log('Pyodide version mismatch, removing static/pyodide directory');
-			await rmdir('static/pyodide', { recursive: true });
-		}
-	} catch (err) {
-		console.log('Pyodide package not found, proceeding with download.', err);
+		return false;
 	}
 
 	try {
@@ -114,6 +136,7 @@ async function downloadPackages() {
 	} catch (err) {
 		console.error('Failed to load or install micropip:', err);
 	}
+	return true;
 }
 
 async function copyPyodide() {
@@ -196,6 +219,8 @@ async function downloadPyPIWheels() {
 }
 
 initNetworkProxyFromEnv();
-await downloadPackages();
-await copyPyodide();
-await downloadPyPIWheels();
+const didRefresh = await downloadPackages();
+if (didRefresh) {
+	await copyPyodide();
+	await downloadPyPIWheels();
+}

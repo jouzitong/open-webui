@@ -14,7 +14,8 @@
 		showShortcuts,
 		user,
 		config,
-		settings
+		settings,
+		theme
 	} from '$lib/stores';
 
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
@@ -39,6 +40,7 @@
 	import PinSlash from '$lib/components/icons/PinSlash.svelte';
 	import { updateUserStatus, updateUserSettings } from '$lib/apis/users';
 	import { toast } from 'svelte-sonner';
+	import { applyTheme } from '$lib/utils/theme';
 
 	const i18n = getContext('i18n');
 
@@ -97,6 +99,25 @@
 		if (state && ($config?.features?.enable_public_active_users_count || role === 'admin')) {
 			getUsageInfo();
 		}
+	};
+
+	const setTheme = async (nextTheme: 'dark' | 'light') => {
+		theme.set(nextTheme);
+		localStorage.setItem('theme', nextTheme);
+		applyTheme(nextTheme);
+
+		if ($mobile) {
+			await tick();
+			showSidebar.set(false);
+		}
+	};
+
+	const isDarkThemeActive = () => {
+		if (typeof document === 'undefined') {
+			return $theme === 'dark' || $theme === 'oled-dark';
+		}
+
+		return document.documentElement.classList.contains('dark');
 	};
 </script>
 
@@ -252,6 +273,34 @@
 				</div>
 				<div class=" self-center truncate">{$i18n.t('Settings')}</div>
 			</button>
+
+			<div class="px-3 pt-1 pb-1">
+				<div class="text-xs text-gray-500 dark:text-gray-400 mb-2">{$i18n.t('Theme')}</div>
+				<div class="grid grid-cols-2 gap-2">
+					<button
+						type="button"
+						class={`rounded-xl px-3 py-2 text-xs font-medium transition border ${
+							isDarkThemeActive()
+								? 'bg-gray-900 text-white border-gray-900 dark:bg-white dark:text-black dark:border-white'
+								: 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 dark:bg-gray-900/50 dark:text-gray-200 dark:border-gray-800 dark:hover:bg-gray-800'
+						}`}
+						on:click={() => setTheme('dark')}
+					>
+						{$i18n.t('Dark')}
+					</button>
+					<button
+						type="button"
+						class={`rounded-xl px-3 py-2 text-xs font-medium transition border ${
+							$theme === 'light'
+								? 'bg-gray-900 text-white border-gray-900 dark:bg-white dark:text-black dark:border-white'
+								: 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 dark:bg-gray-900/50 dark:text-gray-200 dark:border-gray-800 dark:hover:bg-gray-800'
+						}`}
+						on:click={() => setTheme('light')}
+					>
+						{$i18n.t('Light')}
+					</button>
+				</div>
+			</div>
 
 			{#if role === 'admin'}
 				<a

@@ -3,8 +3,10 @@
 	"version": "0.10.2",
 	"private": true,
 	"scripts": {
-		"dev": "npm run pyodide:fetch && vite dev --host",
-		"dev:5050": "npm run pyodide:fetch && vite dev --port 5050",
+		"dev": "vite dev --host",
+		"dev:5050": "vite dev --port 5050",
+		"dev:pyodide": "npm run pyodide:fetch && vite dev --host",
+		"dev:5050:pyodide": "npm run pyodide:fetch && vite dev --port 5050",
 		"build": "npm run pyodide:fetch && vite build",
 		"build:watch": "npm run pyodide:fetch && vite build --watch",
 		"preview": "vite preview",
